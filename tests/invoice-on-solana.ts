@@ -6,43 +6,22 @@ import { Connection, clusterApiUrl, ConfirmOptions, PublicKey, SystemProgram, LA
 describe("invoice-on-solana", () => {
   // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
-  const provider = anchor.getProvider();
-
+  const provider = anchor.getProvider(); 
   anchor.AnchorProvider.env().opts.commitment = "finalized";
-
   const program = anchor.workspace.InvoiceOnSolana as Program<InvoiceOnSolana>;
-
   const connection = new Connection("https://api.devnet.solana.com");
-
-  // Generate a new keypair for the the Project PDA
-  const projectKeypair = anchor.web3.Keypair.generate();
-  console.log("\nProject Public Key: ", projectKeypair.publicKey.toBase58());
-  // Create the PDA
-  const projectSeeds = [Buffer.from("project"), projectKeypair.publicKey.toBuffer()];
-  const [projectKey, _bump] = PublicKey.findProgramAddressSync(projectSeeds, program.programId);
-
-  // Generate a new keypair for the the Employee PDA
-  //const employeePda = anchor.web3.Keypair.generate();
-  //console.log("employeePda Public Key: ", employeePda.publicKey.toBase58());
-
-  // Generate a new keypair for the the Invoice PDA
-  //const invoicePda = anchor.web3.Keypair.generate();
-  //console.log("invoicePda Public Key: ", invoicePda.publicKey.toBase58());
+  const keypair = anchor.web3.Keypair.generate(); //This is the project Manager
 
   ///////////////////////////////////////////////////////////////////////////////////////////
 
-  const keypair = anchor.web3.Keypair.generate(); //This is the project Manager
-
-  //INPUT FROM THE USER
+  //INPUT
   const project = Buffer.from("WBA", "utf8");
   let employee = anchor.web3.Keypair.generate(); //This will be fetched when clicking on the account available in the Project
-  
-
-  //Input from the React Part
   let from = new Date(Date.UTC(2024, 4, 27)); //Put your from from date here
   let to = new Date(Date.UTC(2024, 4, 30)); //Put your to from date here 
   let amount = 3*LAMPORTS_PER_SOL; //Put your amount here
 
+  ///////////////////////////////////////////////////////////////////////////////////////////
 
   //Funding the wallet
   it("Starts an airdrop and confirms it", async () => {
@@ -82,6 +61,13 @@ describe("invoice-on-solana", () => {
 
 //PROJECT
 
+// Deriving the PDAs
+const projectState = anchor.web3.Keypair.generate();
+console.log("Vault State Public Key: ", projectState.publicKey.toBase58());
+
+const projectSeeds = [Buffer.from("project"), projectState.publicKey.toBuffer()];
+const [projectKey, Bump] = PublicKey.findProgramAddressSync(projectSeeds, program.programId);
+
 it("EMPLOYER - Create the Project", async () => {
     try {
     const tx = await program.methods
@@ -89,8 +75,8 @@ it("EMPLOYER - Create the Project", async () => {
       project
     )
     .accounts({
-      projectPda: projectKeypair.publicKey,
-      pdaAuth: projectKey,
+      projectState: projectState.publicKey,
+      project: projectKey,
       owner: keypair.publicKey,
       systemProgram: SystemProgram.programId,
     })

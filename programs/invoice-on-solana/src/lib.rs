@@ -23,13 +23,14 @@ pub mod invoice_on_solana {
         ctx: Context<CreateProject>,
         project_name: Vec<u8>, 
     ) -> Result<()> {
-        ctx.accounts.project_pda.owner = *ctx.accounts.owner.key;
-        ctx.accounts.project_pda.project_name = project_name;
-        ctx.accounts.project_pda.balance = 0;
+        ctx.accounts.project_state.owner = *ctx.accounts.owner.key;
+        ctx.accounts.project_state.project_name = project_name;
+        ctx.accounts.project_state.balance = 0;
 
         Ok(())
     }
 
+/* 
     pub fn project_deposit (
         ctx: Context<ProjectDeposit>,
         amount: u8, 
@@ -264,6 +265,10 @@ pub mod invoice_on_solana {
 
         Ok(())
     }
+
+*/
+
+
 
 }
 

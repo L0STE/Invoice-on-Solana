@@ -11,18 +11,19 @@ pub struct  CreateProject<'info> {
     #[account(
         init,
         payer = owner,
-        space = Project::space()
+        space = 200
     )]
-    pub project_pda: Box<Account<'info, Project>>,
-    #[account(seeds = [b"project", project_pda.key().as_ref()], bump)]
+    pub project_state: Box<Account<'info, Project>>,
+    #[account(seeds = [b"project", project_state.key().as_ref()], bump)]
     ///CHECK
-    pub pda_auth: UncheckedAccount<'info>,
+    pub project: UncheckedAccount<'info>,
     
     #[account(mut)]
     pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
+/* 
 #[derive(Accounts)]
 #[instruction(amount: u8)]
 pub struct  ProjectDeposit<'info> {
@@ -237,3 +238,4 @@ pub struct ClaimInvoice<'info> {
     pub system_program: Program<'info, System>,
 }
 
+*/
