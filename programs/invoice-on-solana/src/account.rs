@@ -2,37 +2,79 @@ use anchor_lang::prelude::*;
 
 use crate::state::*;
 
+//PROBLEM:
+//WHEN I CHANGE THE NAME OF THE PROJECT, CAN I PAY TO INTEGRATE THE STATE?
+
+//ToDo Global: See if in ogni different function i changed all the state like project_state in employee and invoice stuff
+//ToDo Global: Cancel all the space that isn't needed in the different state.
+//ToDo Global: Set Every state and vualt as mut
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 
 //PROJECT
 
 #[derive(Accounts)]
+#[instruction(project_name: String)]
 pub struct  CreateProject<'info> {
     #[account(
         init,
         payer = owner,
-        space = 200
+        space = Project::space() + project_name.len() + 100, //WHEN I'M SURE I NEED TO TAKE OFF THE 100
     )]
-    pub project_state: Box<Account<'info, Project>>,
-    #[account(seeds = [b"project", project_state.key().as_ref()], bump)]
-    ///CHECK
-    pub project: UncheckedAccount<'info>,
+    pub project: Account<'info, Project>,
+    #[account(seeds = [b"project", project.key().as_ref()], bump)]
+    pub project_vault: SystemAccount<'info>,
     
     #[account(mut)]
     pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-/* 
 #[derive(Accounts)]
-#[instruction(amount: u8)]
+#[instruction(auth: Pubkey)]
+pub struct  ProjectChangeAuth<'info> {
+    #[account(
+        mut,
+        constraint = *owner.key != auth,
+        constraint = *owner.key == project.owner,
+    )]
+    pub project: Account<'info, Project>,
+    #[account(seeds = [b"project", project.key().as_ref()], bump)]
+    pub project_vault: SystemAccount<'info>,
+    
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(project_name: String)]
+pub struct  ProjectChangeName<'info> {
+    #[account(
+        mut,
+        constraint = project.project_name != project_name,
+        constraint = *owner.key == project.owner,
+    )]
+    pub project: Account<'info, Project>,
+    #[account(seeds = [b"project", project.key().as_ref()], bump)]
+    pub project_vault: SystemAccount<'info>,
+    
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(amount: u64)]
 pub struct  ProjectDeposit<'info> {
     #[account(
         mut,
         constraint = amount > 0,
-        constraint = *owner.key == project_pda.owner,
+        constraint = *owner.key == project.owner,
     )]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub project: Account<'info, Project>,
+    #[account(mut, seeds = [b"project", project.key().as_ref()], bump = project.project_bump)]
+    pub project_vault: SystemAccount<'info>,
 
     #[account(mut)]
     pub owner: Signer<'info>,
@@ -40,45 +82,19 @@ pub struct  ProjectDeposit<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(amount: u8)]
+#[instruction(amount: u64)]
 pub struct  ProjectWithdraw<'info> {
     #[account(
         mut,
-        constraint = amount - project_pda.balance >= 0,
-        constraint = *owner.key == project_pda.owner,
+        constraint = amount < project.balance,
+        constraint = *owner.key == project.owner,
     )]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub project: Account<'info, Project>,
+    #[account(mut, seeds = [b"project", project.key().as_ref()], bump = project.project_bump)]
+    pub project_vault: SystemAccount<'info>,
 
     #[account(mut)]
     pub owner: Signer<'info>,
-    pub system_program: Program<'info, System>,
-}
-
-
-/*  ToDo          
-#[derive(Accounts)] //HOW TO DO THAT
-pub struct  ChangeProjectManager<'info> {
-    #[account(mut)]
-    pub project_manager: Signer<'info>,
-    #[account(init, payer = project_manager, space = 8 + 32 + 1 + 1 + 1)]
-    pub project_state: Account<'info, ProjectState>,
-    #[account(seeds = [b"project", project_state.key().as_ref()], bump)]
-    pub project: SystemAccount<'info>,
-
-    pub system_program: Program<'info, System>,
-}
-*/ 
-
-#[derive(Accounts)]
-pub struct ProjectChangeName <'info> {
-    #[account(mut)]
-    pub owner: Signer<'info>,
-    #[account(
-        mut,
-        constraint = *owner.key == project_pda.owner,
-    )]
-    pub project_pda: Box<Account<'info, Project>>,
-
     pub system_program: Program<'info, System>,
 }
 
@@ -86,156 +102,188 @@ pub struct ProjectChangeName <'info> {
 
 //EMPLOYEE
 
+//ToDo: CALCULATE MINIMUM RENT for create_employee & employee_activate function
+
 #[derive(Accounts)]
+#[instruction(employee_title: String)]
 pub struct  CreateEmployee<'info> {
     #[account(
-        seeds = [
-            b"employee",
-            project_pda.key().as_ref(),
-        ],
-        bump,
         init,
-        payer = owner,
-        space = Employee::space()
+        payer = project_vault,
+        space = Employee::space() + employee_title.len() + 100,
     )]
-    pub employee_pda: Box<Account<'info, Employee>>,
+    pub employee: Account<'info, Employee>,
+    #[account(mut, seeds = [b"employee", project.key().as_ref(), employee.key().as_ref()], bump = employee.employee_bump)]
+    pub employee_vault: SystemAccount<'info>,
+
     #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
+        constraint = project.owner == owner.key(),
     )]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub project: Account<'info, Project>,
+    #[account(mut, seeds = [b"project", project.key().as_ref()], bump = project.project_bump)]
+    pub project_vault: SystemAccount<'info>,
 
     #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
+    pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+#[instruction(employee_wallet: Pubkey)]
 pub struct  EmployeeChangeWallet<'info> {
     #[account(
         mut,
-        constraint = project_pda.key() == employee_pda.project,
+        constraint = employee_wallet != employee.employee,
+        constraint = project.key() == employee.project,
     )]
-    pub employee_pda: Box<Account<'info, Employee>>,
+    pub employee: Account<'info, Employee>,
+
     #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
+        constraint = project.owner == owner.key(),
     )]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub project: Account<'info, Project>,
 
     #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
+    pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
+#[instruction(employee_title: String)]
 pub struct  EmployeeChangeTitle<'info> {
     #[account(
         mut,
-        constraint = project_pda.key() == employee_pda.project,
+        constraint = employee_title != employee.employee_title,
+        constraint = project.key() == employee.project,
     )]
-    pub employee_pda: Box<Account<'info, Employee>>,
+    pub employee: Account<'info, Employee>,
+
     #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
+        constraint = project.owner == owner.key(),
     )]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub project: Account<'info, Project>,
 
     #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
+    pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
-//ToDo EMPLOYEE ACCEPT
+#[derive(Accounts)]
+#[instruction(monthly_pay: u64)]
+pub struct  EmployeeChangePay<'info> {
+    #[account(
+        mut,
+        constraint = monthly_pay != employee.monthly_pay,
+        constraint = project.key() == employee.project,
+    )]
+    pub employee: Account<'info, Employee>,
+
+    #[account(
+        constraint = project.owner == owner.key(),
+    )]
+    pub project: Account<'info, Project>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct  EmployeeActivate<'info> {
+    #[account(
+        init,
+        payer = employee_vault,
+        space = Invoice::space() + 100,
+    )]
+    pub invoice: Account <'info, Invoice>,
+    #[account(mut, seeds = [b"invoice", employee.key().as_ref(), invoice.key().as_ref()], bump)]
+    pub invoice_vault: SystemAccount<'info>,
+    
+    #[account(
+        mut,
+        constraint = project.balance > employee.monthly_pay,
+        constraint = project.key() == employee.project,
+    )]
+    pub employee: Account<'info, Employee>,
+    #[account(mut, seeds = [b"employee", project.key().as_ref(), employee.key().as_ref()], bump = employee.employee_bump)]
+    pub employee_vault: SystemAccount<'info>,
+
+    #[account(
+        mut,
+        constraint = project.owner == owner.key(),
+    )]
+    pub project: Account<'info, Project>,
+    #[account(mut, seeds = [b"project", project.key().as_ref()], bump = project.project_bump)]
+    pub project_vault: SystemAccount<'info>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct  EmployeeDeactivate<'info> {
+    #[account(
+        mut,
+        constraint = employee.is_active == true,
+        constraint = project.key() == employee.project,
+    )]
+    pub employee: Account<'info, Employee>,
+
+    #[account(
+        constraint = project.owner == owner.key(),
+    )]
+    pub project: Account<'info, Project>,
+
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 
-//INVOICE
+//INVOICE - Employee as AUTH
+
+//ToDo: Find a way to create an Invoice for the 1st of the month later on the TS side everytime i claim my invoice
 
 #[derive(Accounts)]
-#[instruction(amount: u64)]
-pub struct CreateInvoice<'info> {
-    #[account(
-        seeds = [
-            b"invoice",
-            project_pda.key().as_ref(),
-        ],
-        bump,
-        init,
-        payer = owner,
-        space = Invoice::space(), 
-        constraint = amount > 0
-    )]
-    pub invoice_pda: Box<Account<'info, Invoice>>,
-    #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
-    )]
-    pub project_pda: Box<Account<'info, Project>>,
-
-    #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
-    pub system_program: Program<'info, System>,
-}
-
-
-#[derive(Accounts)]
-#[instruction(time: u8, amount: u8)]
-pub struct InvoiceChangeAmount<'info> {
-    #[account(
-        mut,
-        constraint = invoice_pda.project == project_pda.key(),
-        constraint = time < invoice_pda.from,
-        constraint = amount > 0,
-    )]
-    pub invoice_pda: Box<Account<'info, Invoice>>,
-    #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
-    )]
-    pub project_pda: Box<Account<'info, Project>>,
-    
-    #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-#[instruction(time: u8)]
-pub struct InvoiceChangeDate<'info> {
-    #[account(
-        mut,
-        constraint = invoice_pda.project == project_pda.key(),
-        constraint = time < invoice_pda.from,
-    )]
-    pub invoice_pda: Box<Account<'info, Invoice>>,
-    #[account(
-        mut,
-        constraint = project_pda.owner == owner.key()
-    )]
-    pub project_pda: Box<Account<'info, Project>>,
-    
-    #[account(mut)]
-    pub owner: Signer<'info>,   //Should be the project_pda authority
-    pub system_program: Program<'info, System>,
-}
-
-#[derive(Accounts)]
-#[instruction(time: u8)]
 pub struct ClaimInvoice<'info> {
     #[account(
         mut,
-        constraint = invoice_pda.project == project_pda.key(),
-        constraint = invoice_pda.employee_wallet == employee.key(),
-        constraint = time < invoice_pda.from,
+        constraint = invoice.employee == employee.employee,
+        constraint = invoice.employee == owner.key(),
+        constraint = invoice.project == project.key(),
+
     )]
-    pub invoice_pda: Box<Account<'info, Invoice>>,
-    #[account(mut)]
-    pub project_pda: Box<Account<'info, Project>>,
+    pub invoice: Account <'info, Invoice>,
+    #[account(mut, seeds = [b"invoice", employee.key().as_ref(), invoice.key().as_ref()], bump = invoice.invoice_bump)]
+    pub invoice_vault: SystemAccount<'info>,
+
+    #[account(
+        init,
+        payer = employee_vault,
+        space = Invoice::space() + 100,
+    )]
+    pub new_invoice: Account <'info, Invoice>,
+    #[account(mut, seeds = [b"invoice", employee.key().as_ref(), invoice.key().as_ref()], bump)]
+    pub new_invoice_vault: SystemAccount<'info>,
+    
+    #[account(
+        mut,
+        constraint = project.key() == employee.project,
+    )]
+    pub employee: Account<'info, Employee>,
+    #[account(mut, seeds = [b"employee", project.key().as_ref(), employee.key().as_ref()], bump = employee.employee_bump)]
+    pub employee_vault: SystemAccount<'info>,
+
+    #[account(
+        mut,
+    )]
+    pub project: Account<'info, Project>,
+    #[account(mut, seeds = [b"project", project.key().as_ref()], bump = project.project_bump)]
+    pub project_vault: SystemAccount<'info>,
 
     #[account(mut)]
-    pub employee: Signer<'info>,
+    pub owner: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
-
-*/
